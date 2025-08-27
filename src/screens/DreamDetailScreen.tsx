@@ -15,6 +15,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useDreamStore } from '../store/dreamStore';
 import { DreamEntry, DreamAnalysis } from '../types/dream';
+import VoicePlayback from '../components/VoicePlayback';
 
 type DreamDetailRouteProp = RouteProp<RootStackParamList, 'DreamDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList, 'DreamDetail'>;
@@ -277,6 +278,14 @@ const DreamDetailScreen = () => {
                 ))}
               </View>,
               'library-outline'
+            )}
+
+          {/* Voice Recording */}
+          {dream.voiceRecordingUri &&
+            renderSection(
+              'Voice Recording',
+              <VoicePlayback uri={dream.voiceRecordingUri} />,
+              'mic-outline'
             )}
 
           {/* AI Analysis */}

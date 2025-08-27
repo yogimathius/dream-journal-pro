@@ -100,6 +100,14 @@ const DreamListScreen = () => {
               Sleep: {item.sleepQuality}/10
             </Text>
           </View>
+          {item.voiceRecordingUri && (
+            <View style={styles.statItem}>
+              <Ionicons name="mic" size={14} color="#10b981" />
+              <Text style={[styles.statText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+                Voice
+              </Text>
+            </View>
+          )}
         </View>
         
         {item.symbols.length > 0 && (

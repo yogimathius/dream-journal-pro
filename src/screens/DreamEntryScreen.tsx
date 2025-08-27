@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useDreamStore } from '../store/dreamStore';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { Emotion, EmotionCategory } from '../types/dream';
+import VoiceRecorder from '../components/VoiceRecorder';
 
 type DreamEntryRouteProp = RouteProp<RootStackParamList, 'DreamEntry'>;
 type NavigationProp = StackNavigationProp<RootStackParamList, 'DreamEntry'>;
@@ -41,6 +42,7 @@ const DreamEntryScreen = () => {
   const [customTag, setCustomTag] = useState('');
   const [isQuickCapture, setIsQuickCapture] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [voiceRecordingUri, setVoiceRecordingUri] = useState<string | null>(null);
 
   const isEditing = route.params?.dreamId !== undefined;
   const editingDream = isEditing ? getDream(route.params.dreamId!) : null;
@@ -56,6 +58,7 @@ const DreamEntryScreen = () => {
       setSleepDuration(Math.round(editingDream.sleepDuration / 60)); // convert minutes to hours
       setSelectedEmotions(editingDream.emotions);
       setLifeTags(editingDream.lifeTags);
+      setVoiceRecordingUri(editingDream.voiceRecordingUri || null);
       setIsQuickCapture(false);
     }
   }, [editingDream]);
@@ -100,8 +103,8 @@ const DreamEntryScreen = () => {
   };
 
   const handleQuickSave = async () => {
-    if (!narrative.trim()) {
-      Alert.alert('Dream Required', 'Please enter your dream before saving.');
+    if (!narrative.trim() && !voiceRecordingUri) {
+      Alert.alert('Dream Required', 'Please enter your dream or record a voice note before saving.');
       return;
     }
 
@@ -120,6 +123,7 @@ const DreamEntryScreen = () => {
         wakeUpTime: new Date(),
         sleepDuration: sleepDuration * 60, // convert hours to minutes
         lifeTags,
+        voiceRecordingUri,
         status: 'draft' as const,
       };
 
@@ -138,8 +142,8 @@ const DreamEntryScreen = () => {
   };
 
   const handleDetailedSave = async () => {
-    if (!narrative.trim()) {
-      Alert.alert('Dream Required', 'Please enter your dream narrative before saving.');
+    if (!narrative.trim() && !voiceRecordingUri) {
+      Alert.alert('Dream Required', 'Please enter your dream narrative or record a voice note before saving.');
       return;
     }
 
@@ -163,6 +167,7 @@ const DreamEntryScreen = () => {
         wakeUpTime: new Date(),
         sleepDuration: sleepDuration * 60, // convert hours to minutes
         lifeTags,
+        voiceRecordingUri,
         status: 'complete' as const,
       };
 
@@ -277,6 +282,13 @@ const DreamEntryScreen = () => {
             />
           </View>
 
+          <View style={styles.voiceRecorderContainer}>
+            <VoiceRecorder
+              onRecordingComplete={(uri) => setVoiceRecordingUri(uri)}
+              onRecordingClear={() => setVoiceRecordingUri(null)}
+            />
+          </View>
+
           <View style={styles.quickActions}>
             <TouchableOpacity
               style={[styles.detailsButton, { backgroundColor: isDark ? '#374151' : '#e5e7eb' }]}
@@ -289,9 +301,9 @@ const DreamEntryScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.saveButton, { opacity: narrative.trim() ? 1 : 0.5 }]}
+              style={[styles.saveButton, { opacity: (narrative.trim() || voiceRecordingUri) ? 1 : 0.5 }]}
               onPress={handleQuickSave}
-              disabled={!narrative.trim() || isSaving}
+              disabled={(!narrative.trim() && !voiceRecordingUri) || isSaving}
             >
               {isSaving ? (
                 <Ionicons name="hourglass-outline" size={20} color="#ffffff" />
@@ -463,6 +475,16 @@ const DreamEntryScreen = () => {
             </View>
           </View>
 
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#000000' }]}>
+              Voice Recording
+            </Text>
+            <VoiceRecorder
+              onRecordingComplete={(uri) => setVoiceRecordingUri(uri)}
+              onRecordingClear={() => setVoiceRecordingUri(null)}
+            />
+          </View>
+
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.backButton, { backgroundColor: isDark ? '#374151' : '#e5e7eb' }]}
@@ -474,9 +496,9 @@ const DreamEntryScreen = () => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.saveButton, { opacity: (narrative.trim() && title.trim()) ? 1 : 0.5 }]}
+              style={[styles.saveButton, { opacity: ((narrative.trim() || voiceRecordingUri) && title.trim()) ? 1 : 0.5 }]}
               onPress={handleDetailedSave}
-              disabled={!narrative.trim() || !title.trim() || isSaving}
+              disabled={(!narrative.trim() && !voiceRecordingUri) || !title.trim() || isSaving}
             >
               {isSaving ? (
                 <Ionicons name="hourglass-outline" size={20} color="#ffffff" />
@@ -522,6 +544,10 @@ const styles = StyleSheet.create({
   },
   quickInputContainer: {
     flex: 1,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  voiceRecorderContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
   },
