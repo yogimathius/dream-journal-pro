@@ -12,9 +12,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useDreamStore } from '../store/dreamStore';
+import { useDreamStore, DreamFilters } from '../store/dreamStore';
 import { DreamEntry } from '../types/dream';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import SearchAndFilter from '../components/SearchAndFilter';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -22,10 +23,43 @@ const DreamListScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { dreams, searchDreams } = useDreamStore();
+  const { dreams, searchDreams, filterDreams } = useDreamStore();
   const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<DreamFilters>({});
 
-  const filteredDreams = searchQuery ? searchDreams(searchQuery) : dreams;
+  // Apply search and filters
+  const getFilteredDreams = () => {
+    let result = dreams;
+    
+    // Apply search first
+    if (searchQuery) {
+      result = searchDreams(searchQuery);
+    }
+    
+    // Apply filters
+    const hasActiveFilters = Object.values(filters).some(Boolean);
+    if (hasActiveFilters) {
+      result = filterDreams(filters);
+      
+      // If we have both search and filters, we need to intersect the results
+      if (searchQuery) {
+        const searchResults = searchDreams(searchQuery);
+        const filteredResults = filterDreams(filters);
+        result = searchResults.filter(dream => 
+          filteredResults.some(filtered => filtered.id === dream.id)
+        );
+      }
+    }
+    
+    return result;
+  };
+  
+  const filteredDreams = getFilteredDreams();
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+  
+  const clearFilters = () => {
+    setFilters({});
+  };
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -164,39 +198,33 @@ const DreamListScreen = () => {
         { backgroundColor: isDark ? '#111827' : '#f9fafb' },
       ]}
     >
-      <View style={styles.searchContainer}>
-        <View
-          style={[
-            styles.searchInputContainer,
-            { backgroundColor: isDark ? '#1f2937' : '#ffffff' },
-          ]}
-        >
-          <Ionicons
-            name="search"
-            size={20}
-            color={isDark ? '#9ca3af' : '#6b7280'}
-          />
-          <TextInput
-            style={[
-              styles.searchInput,
-              { color: isDark ? '#ffffff' : '#000000' },
-            ]}
-            placeholder="Search dreams, symbols, emotions..."
-            placeholderTextColor={isDark ? '#9ca3af' : '#6b7280'}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery !== '' && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons
-                name="close-circle"
-                size={20}
-                color={isDark ? '#9ca3af' : '#6b7280'}
-              />
+      <SearchAndFilter
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        filters={filters}
+        onFiltersChange={setFilters}
+        onClearFilters={clearFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
+
+      {(searchQuery || hasActiveFilters) && (
+        <View style={styles.resultsContainer}>
+          <Text style={[styles.resultsText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+            {filteredDreams.length} {filteredDreams.length === 1 ? 'dream' : 'dreams'} found
+          </Text>
+          {(searchQuery || hasActiveFilters) && (
+            <TouchableOpacity
+              onPress={() => {
+                setSearchQuery('');
+                setFilters({});
+              }}
+              style={styles.clearAllButton}
+            >
+              <Text style={styles.clearAllText}>Clear All</Text>
             </TouchableOpacity>
           )}
         </View>
-      </View>
+      )}
 
       <FlatList
         data={filteredDreams}
@@ -221,30 +249,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-  },
   listContainer: {
     flexGrow: 1,
     paddingHorizontal: 16,
+  },
+  resultsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  resultsText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  clearAllButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearAllText: {
+    color: '#6366f1',
+    fontSize: 14,
+    fontWeight: '600',
   },
   dreamCard: {
     padding: 16,
