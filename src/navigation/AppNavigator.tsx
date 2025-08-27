@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
+import { useColorScheme, TouchableOpacity } from 'react-native';
 
 // Screens (will be created)
 import DreamListScreen from '../screens/DreamListScreen';
@@ -76,17 +76,21 @@ const TabNavigator = () => {
       <Tab.Screen
         name="Dreams"
         component={DreamListScreen}
-        options={{
+        options={({ navigation }) => ({
           title: 'Dream Journal',
           headerRight: () => (
-            <Ionicons
-              name="add-circle-outline"
-              size={28}
-              color="#6366f1"
+            <TouchableOpacity
+              onPress={() => navigation.navigate('DreamEntry' as any)}
               style={{ marginRight: 15 }}
-            />
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={28}
+                color="#6366f1"
+              />
+            </TouchableOpacity>
           ),
-        }}
+        })}
       />
       <Tab.Screen
         name="Analytics"
