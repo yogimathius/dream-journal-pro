@@ -68,6 +68,7 @@ export interface DreamSymbol {
 export interface UserPreferences {
   reminderTime: string;
   reminderEnabled: boolean;
+  reminderNotificationId?: string;
   darkModeEnabled: boolean;
   voiceRecordingEnabled: boolean;
   analysisLanguage: string;

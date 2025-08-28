@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DreamEntry, DreamAnalysis, UserPreferences, Pattern } from '../types/dream';
 import { initializeOpenAI } from '../services/openAIService';
+import notificationService from '../services/notificationService';
 
 interface DreamStore {
   dreams: DreamEntry[];
@@ -196,18 +197,60 @@ export const useDreamStore = create<DreamStore>()(
         set({ patterns });
       },
 
-      updatePreferences: (preferences) => {
+      updatePreferences: async (preferences) => {
+        const oldPrefs = get().userPreferences;
+        const newPrefs = { ...oldPrefs, ...preferences };
+        
         set((state) => ({
-          userPreferences: { ...state.userPreferences, ...preferences },
+          userPreferences: newPrefs,
         }));
         
         // Initialize OpenAI if API key is provided
-        const updatedPrefs = get().userPreferences;
-        if (updatedPrefs.openAIApiKey) {
+        if (newPrefs.openAIApiKey) {
           try {
-            initializeOpenAI({ apiKey: updatedPrefs.openAIApiKey });
+            initializeOpenAI({ apiKey: newPrefs.openAIApiKey });
           } catch (error) {
             console.error('Failed to initialize OpenAI:', error);
+          }
+        }
+
+        // Handle notification scheduling
+        if ('reminderEnabled' in preferences || 'reminderTime' in preferences) {
+          try {
+            // Cancel existing notification if it exists
+            if (oldPrefs.reminderNotificationId) {
+              await notificationService.cancelDreamReminder(oldPrefs.reminderNotificationId);
+            }
+
+            // Schedule new notification if enabled
+            if (newPrefs.reminderEnabled) {
+              const reminderMessage = notificationService.getRandomReminderMessage();
+              const notificationId = await notificationService.scheduleDreamReminder({
+                time: newPrefs.reminderTime,
+                enabled: true,
+                title: reminderMessage.title,
+                body: reminderMessage.body,
+              });
+
+              if (notificationId) {
+                set((state) => ({
+                  userPreferences: { 
+                    ...state.userPreferences, 
+                    reminderNotificationId: notificationId 
+                  },
+                }));
+              }
+            } else {
+              // Clear notification ID if disabled
+              set((state) => ({
+                userPreferences: { 
+                  ...state.userPreferences, 
+                  reminderNotificationId: undefined 
+                },
+              }));
+            }
+          } catch (error) {
+            console.error('Error updating dream reminder:', error);
           }
         }
       },
@@ -337,13 +380,25 @@ export const useDreamStore = create<DreamStore>()(
       name: 'dream-store',
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
-        // Initialize OpenAI service when store is rehydrated
-        if (state?.userPreferences.openAIApiKey) {
-          try {
-            initializeOpenAI({ apiKey: state.userPreferences.openAIApiKey });
-          } catch (error) {
-            console.error('Failed to initialize OpenAI on startup:', error);
+        // Initialize services when store is rehydrated
+        if (state?.userPreferences) {
+          // Initialize OpenAI service
+          if (state.userPreferences.openAIApiKey) {
+            try {
+              initializeOpenAI({ apiKey: state.userPreferences.openAIApiKey });
+            } catch (error) {
+              console.error('Failed to initialize OpenAI on startup:', error);
+            }
           }
+
+          // Initialize notification service
+          notificationService.initialize().then((initialized) => {
+            if (initialized && state.userPreferences.reminderEnabled) {
+              console.log('Notification service initialized, reminders should be active');
+            }
+          }).catch(error => {
+            console.error('Failed to initialize notifications on startup:', error);
+          });
         }
       },
     }

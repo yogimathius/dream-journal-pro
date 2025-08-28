@@ -13,11 +13,14 @@ import {
   Linking,
   TextInput,
   Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useDreamStore } from '../store/dreamStore';
 import { addSampleData } from '../utils/sampleData';
 import { initializeOpenAI } from '../services/openAIService';
+import notificationService from '../services/notificationService';
 
 const SettingsScreen = () => {
   const colorScheme = useColorScheme();
@@ -26,6 +29,13 @@ const SettingsScreen = () => {
   const [showDeveloperInfo, setShowDeveloperInfo] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState(userPreferences.openAIApiKey || '');
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempTime, setTempTime] = useState(() => {
+    const [hours, minutes] = userPreferences.reminderTime.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date;
+  });
 
   const handleExportData = async () => {
     try {
@@ -132,6 +142,57 @@ const SettingsScreen = () => {
     return userPreferences.openAIApiKey ? 'Configured' : 'Not configured';
   };
 
+  const handleReminderTimePress = () => {
+    setShowTimePicker(true);
+  };
+
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+    }
+    
+    if (selectedTime) {
+      setTempTime(selectedTime);
+      
+      if (Platform.OS === 'android') {
+        // On Android, immediately save the time
+        const hours = selectedTime.getHours().toString().padStart(2, '0');
+        const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+        const timeString = `${hours}:${minutes}`;
+        updatePreferences({ reminderTime: timeString });
+      }
+    }
+  };
+
+  const handleTimePickerDone = () => {
+    const hours = tempTime.getHours().toString().padStart(2, '0');
+    const minutes = tempTime.getMinutes().toString().padStart(2, '0');
+    const timeString = `${hours}:${minutes}`;
+    updatePreferences({ reminderTime: timeString });
+    setShowTimePicker(false);
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      await notificationService.sendTestNotification();
+      Alert.alert('Test Notification', 'A test notification has been sent! You should see it in a few seconds.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send test notification. Please check notification permissions.');
+    }
+  };
+
+  const formatReminderTime = (time: string) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    const date = new Date();
+    date.setHours(hours, minutes);
+    
+    return date.toLocaleTimeString([], { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  };
+
   const renderSection = (title: string, children: React.ReactNode) => (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#000000' }]}>
@@ -232,6 +293,14 @@ const SettingsScreen = () => {
                 'notifications-outline',
                 userPreferences.reminderEnabled,
                 (value) => updatePreferences({ reminderEnabled: value })
+              )}
+              
+              {userPreferences.reminderEnabled && renderActionItem(
+                'Reminder Time',
+                formatReminderTime(userPreferences.reminderTime),
+                'time-outline',
+                handleReminderTimePress,
+                '#f59e0b'
               )}
               
               {renderSwitchItem(
@@ -405,6 +474,12 @@ const SettingsScreen = () => {
                   <Text style={[styles.copyrightText, { color: isDark ? '#6b7280' : '#9ca3af' }]}>
                     Built with Claude Code 🤖
                   </Text>
+                  <TouchableOpacity
+                    style={[styles.testButton, { backgroundColor: '#6366f1' }]}
+                    onPress={handleTestNotification}
+                  >
+                    <Text style={styles.testButtonText}>Test Notification</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </TouchableOpacity>
@@ -519,6 +594,62 @@ const SettingsScreen = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Time Picker Modal */}
+      {showTimePicker && (
+        <Modal
+          visible={showTimePicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: isDark ? '#1f2937' : '#ffffff' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: isDark ? '#ffffff' : '#000000' }]}>
+                  Reminder Time
+                </Text>
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    onPress={handleTimePickerDone}
+                    style={styles.doneButton}
+                  >
+                    <Text style={styles.doneButtonText}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              
+              <Text style={[styles.modalDescription, { color: isDark ? '#d1d5db' : '#374151' }]}>
+                Choose when you'd like to receive daily dream recording reminders.
+              </Text>
+              
+              <View style={styles.timePickerContainer}>
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleTimeChange}
+                  style={styles.timePicker}
+                  textColor={isDark ? '#ffffff' : '#000000'}
+                />
+              </View>
+              
+              {Platform.OS === 'android' && (
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton, { borderColor: isDark ? '#4b5563' : '#d1d5db' }]}
+                    onPress={() => setShowTimePicker(false)}
+                  >
+                    <Text style={[styles.cancelButtonText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 };
@@ -765,6 +896,37 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  timePickerContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  timePicker: {
+    width: '100%',
+    height: 150,
+  },
+  doneButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#6366f1',
+    borderRadius: 6,
+  },
+  doneButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  testButton: {
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  testButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
     fontWeight: '600',
   },
 });
