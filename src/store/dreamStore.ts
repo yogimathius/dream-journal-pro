@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DreamEntry, DreamAnalysis, UserPreferences, Pattern } from '../types/dream';
+import { initializeOpenAI } from '../services/openAIService';
 
 interface DreamStore {
   dreams: DreamEntry[];
@@ -199,6 +200,16 @@ export const useDreamStore = create<DreamStore>()(
         set((state) => ({
           userPreferences: { ...state.userPreferences, ...preferences },
         }));
+        
+        // Initialize OpenAI if API key is provided
+        const updatedPrefs = get().userPreferences;
+        if (updatedPrefs.openAIApiKey) {
+          try {
+            initializeOpenAI({ apiKey: updatedPrefs.openAIApiKey });
+          } catch (error) {
+            console.error('Failed to initialize OpenAI:', error);
+          }
+        }
       },
 
       getDreamStatistics: () => {
@@ -325,6 +336,16 @@ export const useDreamStore = create<DreamStore>()(
     {
       name: 'dream-store',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        // Initialize OpenAI service when store is rehydrated
+        if (state?.userPreferences.openAIApiKey) {
+          try {
+            initializeOpenAI({ apiKey: state.userPreferences.openAIApiKey });
+          } catch (error) {
+            console.error('Failed to initialize OpenAI on startup:', error);
+          }
+        }
+      },
     }
   )
 );

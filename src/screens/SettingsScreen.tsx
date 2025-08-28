@@ -11,16 +11,21 @@ import {
   Alert,
   Share,
   Linking,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDreamStore } from '../store/dreamStore';
 import { addSampleData } from '../utils/sampleData';
+import { initializeOpenAI } from '../services/openAIService';
 
 const SettingsScreen = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { userPreferences, updatePreferences, dreams, loadSampleData, clearAllData } = useDreamStore();
   const [showDeveloperInfo, setShowDeveloperInfo] = useState(false);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState(userPreferences.openAIApiKey || '');
 
   const handleExportData = async () => {
     try {
@@ -105,6 +110,26 @@ const SettingsScreen = () => {
         },
       ]
     );
+  };
+
+  const handleConfigureOpenAI = () => {
+    setApiKeyInput(userPreferences.openAIApiKey || '');
+    setShowApiKeyInput(true);
+  };
+
+  const handleSaveApiKey = () => {
+    if (apiKeyInput.trim()) {
+      updatePreferences({ openAIApiKey: apiKeyInput.trim() });
+      Alert.alert('Success', 'OpenAI API key has been saved and configured.');
+    } else {
+      updatePreferences({ openAIApiKey: undefined });
+      Alert.alert('Removed', 'OpenAI API key has been removed.');
+    }
+    setShowApiKeyInput(false);
+  };
+
+  const getApiKeyStatus = () => {
+    return userPreferences.openAIApiKey ? 'Configured' : 'Not configured';
   };
 
   const renderSection = (title: string, children: React.ReactNode) => (
@@ -223,6 +248,19 @@ const SettingsScreen = () => {
                 'moon-outline',
                 userPreferences.darkModeEnabled,
                 (value) => updatePreferences({ darkModeEnabled: value })
+              )}
+            </>
+          ))}
+
+          {/* AI Features */}
+          {renderSection('AI Features', (
+            <>
+              {renderActionItem(
+                'OpenAI Configuration',
+                `API Key: ${getApiKeyStatus()}`,
+                'key-outline',
+                handleConfigureOpenAI,
+                userPreferences.openAIApiKey ? '#10b981' : '#f59e0b'
               )}
             </>
           ))}
@@ -406,6 +444,81 @@ const SettingsScreen = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* OpenAI API Key Modal */}
+      <Modal
+        visible={showApiKeyInput}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowApiKeyInput(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#1f2937' : '#ffffff' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: isDark ? '#ffffff' : '#000000' }]}>
+                OpenAI Configuration
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowApiKeyInput(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={isDark ? '#9ca3af' : '#6b7280'} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={[styles.modalDescription, { color: isDark ? '#d1d5db' : '#374151' }]}>
+              Enter your OpenAI API key to enable AI-powered dream analysis. Your key is stored locally and never shared.
+            </Text>
+            
+            <View style={styles.inputContainer}>
+              <Text style={[styles.inputLabel, { color: isDark ? '#d1d5db' : '#374151' }]}>
+                API Key
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: isDark ? '#374151' : '#f9fafb',
+                    color: isDark ? '#ffffff' : '#000000',
+                    borderColor: isDark ? '#4b5563' : '#d1d5db',
+                  }
+                ]}
+                value={apiKeyInput}
+                onChangeText={setApiKeyInput}
+                placeholder="sk-..."
+                placeholderTextColor={isDark ? '#9ca3af' : '#6b7280'}
+                secureTextEntry={true}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+            
+            <Text style={[styles.helperText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+              Get your API key from platform.openai.com/api-keys
+            </Text>
+            
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: isDark ? '#4b5563' : '#d1d5db' }]}
+                onPress={() => setShowApiKeyInput(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleSaveApiKey}
+              >
+                <Text style={styles.saveButtonText}>
+                  {apiKeyInput.trim() ? 'Save' : 'Remove'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -572,6 +685,87 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  inputContainer: {
+    marginBottom: 12,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  textInput: {
+    height: 48,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 14,
+  },
+  helperText: {
+    fontSize: 12,
+    marginBottom: 24,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  saveButton: {
+    backgroundColor: '#6366f1',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

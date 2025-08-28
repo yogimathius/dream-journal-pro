@@ -71,6 +71,7 @@ export interface UserPreferences {
   darkModeEnabled: boolean;
   voiceRecordingEnabled: boolean;
   analysisLanguage: string;
+  openAIApiKey?: string;
   privacySettings: PrivacySettings;
 }
 

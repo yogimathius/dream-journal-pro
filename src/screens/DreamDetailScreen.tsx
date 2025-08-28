@@ -14,8 +14,9 @@ import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useDreamStore } from '../store/dreamStore';
-import { DreamEntry, DreamAnalysis } from '../types/dream';
+import { DreamEntry } from '../types/dream';
 import VoicePlayback from '../components/VoicePlayback';
+import DreamAnalysisCard from '../components/DreamAnalysisCard';
 
 type DreamDetailRouteProp = RouteProp<RootStackParamList, 'DreamDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList, 'DreamDetail'>;
@@ -121,17 +122,6 @@ const DreamDetailScreen = () => {
     return `${mins}m`;
   };
 
-  const getAnalysis = (): DreamAnalysis | null => {
-    if (!dream.aiInterpretation) return null;
-    
-    try {
-      return JSON.parse(dream.aiInterpretation);
-    } catch {
-      return null;
-    }
-  };
-
-  const analysis = getAnalysis();
 
   const renderSection = (title: string, content: React.ReactNode, icon?: string) => (
     <View style={styles.section}>
@@ -289,66 +279,7 @@ const DreamDetailScreen = () => {
             )}
 
           {/* AI Analysis */}
-          {analysis &&
-            renderSection(
-              'AI Dream Analysis',
-              <View style={styles.analysisContainer}>
-                <View style={styles.analysisSection}>
-                  <Text style={[styles.analysisSubtitle, { color: isDark ? '#60a5fa' : '#3b82f6' }]}>
-                    Symbolic Landscape
-                  </Text>
-                  <Text style={[styles.analysisText, { color: isDark ? '#d1d5db' : '#374151' }]}>
-                    {analysis.symbolicLandscape}
-                  </Text>
-                </View>
-
-                <View style={styles.analysisSection}>
-                  <Text style={[styles.analysisSubtitle, { color: isDark ? '#34d399' : '#10b981' }]}>
-                    Emotional Undercurrent
-                  </Text>
-                  <Text style={[styles.analysisText, { color: isDark ? '#d1d5db' : '#374151' }]}>
-                    {analysis.emotionalUndercurrent}
-                  </Text>
-                </View>
-
-                <View style={styles.analysisSection}>
-                  <Text style={[styles.analysisSubtitle, { color: isDark ? '#fbbf24' : '#f59e0b' }]}>
-                    Life Integration
-                  </Text>
-                  <Text style={[styles.analysisText, { color: isDark ? '#d1d5db' : '#374151' }]}>
-                    {analysis.lifeIntegration}
-                  </Text>
-                </View>
-
-                {analysis.soulQuestions && analysis.soulQuestions.length > 0 && (
-                  <View style={styles.analysisSection}>
-                    <Text style={[styles.analysisSubtitle, { color: isDark ? '#c084fc' : '#8b5cf6' }]}>
-                      Soul Questions
-                    </Text>
-                    {analysis.soulQuestions.map((question, index) => (
-                      <Text
-                        key={index}
-                        style={[styles.questionText, { color: isDark ? '#d1d5db' : '#374151' }]}
-                      >
-                        • {question}
-                      </Text>
-                    ))}
-                  </View>
-                )}
-
-                {analysis.integrationPractice && (
-                  <View style={styles.analysisSection}>
-                    <Text style={[styles.analysisSubtitle, { color: isDark ? '#fb7185' : '#ec4899' }]}>
-                      Integration Practice
-                    </Text>
-                    <Text style={[styles.analysisText, { color: isDark ? '#d1d5db' : '#374151' }]}>
-                      {analysis.integrationPractice}
-                    </Text>
-                  </View>
-                )}
-              </View>,
-              'bulb-outline'
-            )}
+          <DreamAnalysisCard dream={dream} />
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
@@ -359,19 +290,6 @@ const DreamDetailScreen = () => {
               <Ionicons name="create-outline" size={20} color="#ffffff" />
               <Text style={styles.actionButtonText}>Edit Dream</Text>
             </TouchableOpacity>
-
-            {!analysis && (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.analyzeButton]}
-                onPress={() => {
-                  // TODO: Implement AI analysis
-                  Alert.alert('Coming Soon', 'AI analysis feature will be implemented in the next phase.');
-                }}
-              >
-                <Ionicons name="sparkles-outline" size={20} color="#ffffff" />
-                <Text style={styles.actionButtonText}>Analyze with AI</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
       </ScrollView>
@@ -579,25 +497,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  analysisContainer: {
-    gap: 20,
-  },
-  analysisSection: {
-    gap: 8,
-  },
-  analysisSubtitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  analysisText: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  questionText: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginLeft: 8,
-  },
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
@@ -615,9 +514,6 @@ const styles = StyleSheet.create({
   },
   editButton: {
     backgroundColor: '#6366f1',
-  },
-  analyzeButton: {
-    backgroundColor: '#10b981',
   },
   actionButtonText: {
     color: '#ffffff',
