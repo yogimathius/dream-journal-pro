@@ -29,6 +29,10 @@ interface DreamStore {
   
   // Statistics
   getDreamStatistics: () => DreamStatistics;
+  
+  // Sample data
+  loadSampleData: () => void;
+  clearAllData: () => void;
 }
 
 export interface DreamFilters {
@@ -298,6 +302,24 @@ export const useDreamStore = create<DreamStore>()(
           longestStreak,
           currentStreak,
         };
+      },
+
+      loadSampleData: () => {
+        const { generateMultipleSampleDreams } = require('../utils/sampleData');
+        const sampleDreams = generateMultipleSampleDreams(15);
+        
+        set((state) => ({
+          dreams: [...sampleDreams, ...state.dreams],
+        }));
+      },
+
+      clearAllData: () => {
+        set(() => ({
+          dreams: [],
+          patterns: [],
+          isAnalyzing: false,
+          userPreferences: defaultPreferences,
+        }));
       },
     }),
     {

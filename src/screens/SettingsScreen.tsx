@@ -14,11 +14,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDreamStore } from '../store/dreamStore';
+import { addSampleData } from '../utils/sampleData';
 
 const SettingsScreen = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { userPreferences, updatePreferences, dreams } = useDreamStore();
+  const { userPreferences, updatePreferences, dreams, loadSampleData, clearAllData } = useDreamStore();
   const [showDeveloperInfo, setShowDeveloperInfo] = useState(false);
 
   const handleExportData = async () => {
@@ -41,6 +42,28 @@ const SettingsScreen = () => {
     }
   };
 
+  const handleLoadSampleData = () => {
+    if (dreams.length > 0) {
+      Alert.alert(
+        'Add Sample Dreams',
+        'This will add 15 sample dreams to your journal. Your existing dreams will be preserved.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add Samples',
+            onPress: () => {
+              loadSampleData();
+              Alert.alert('Success', '15 sample dreams have been added to your journal!');
+            },
+          },
+        ]
+      );
+    } else {
+      loadSampleData();
+      Alert.alert('Success', '15 sample dreams have been added to get you started!');
+    }
+  };
+
   const handleClearAllData = () => {
     Alert.alert(
       'Clear All Data',
@@ -51,7 +74,7 @@ const SettingsScreen = () => {
           text: 'Delete Everything',
           style: 'destructive',
           onPress: () => {
-            // Clear dreams - this would need to be implemented in the store
+            clearAllData();
             Alert.alert('Data Cleared', 'All your dreams and settings have been deleted.');
           },
         },
@@ -220,6 +243,14 @@ const SettingsScreen = () => {
                 })
               )}
               
+              {renderActionItem(
+                'Load Sample Dreams',
+                'Add sample dreams to explore the app features',
+                'bulb-outline',
+                handleLoadSampleData,
+                '#10b981'
+              )}
+
               {renderActionItem(
                 'Export Data',
                 'Download all your dreams and settings',
