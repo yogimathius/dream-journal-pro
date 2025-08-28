@@ -10,6 +10,7 @@ import DreamListScreen from '../screens/DreamListScreen';
 import DreamEntryScreen from '../screens/DreamEntryScreen';
 import DreamDetailScreen from '../screens/DreamDetailScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
+import PatternsScreen from '../screens/PatternsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
 // Navigation types
@@ -22,6 +23,7 @@ export type RootStackParamList = {
 export type TabParamList = {
   Dreams: undefined;
   Analytics: undefined;
+  Patterns: undefined;
   Settings: undefined;
 };
 
@@ -42,6 +44,8 @@ const TabNavigator = () => {
             iconName = focused ? 'moon' : 'moon-outline';
           } else if (route.name === 'Analytics') {
             iconName = focused ? 'analytics' : 'analytics-outline';
+          } else if (route.name === 'Patterns') {
+            iconName = focused ? 'shapes' : 'shapes-outline';
           } else if (route.name === 'Settings') {
             iconName = focused ? 'settings' : 'settings-outline';
           } else {
@@ -97,6 +101,13 @@ const TabNavigator = () => {
         component={AnalyticsScreen}
         options={{
           title: 'Insights',
+        }}
+      />
+      <Tab.Screen
+        name="Patterns"
+        component={PatternsScreen}
+        options={{
+          title: 'Patterns',
         }}
       />
       <Tab.Screen
