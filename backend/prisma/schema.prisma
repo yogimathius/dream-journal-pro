@@ -1,0 +1,276 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model with subscription and authentication
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  username        String?  @unique
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  avatar          String?
+  timezone        String   @default("UTC")
+  isVerified      Boolean  @default(false)
+  verificationToken String?
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
+  
+  // Subscription information
+  subscriptionStatus    SubscriptionStatus @default(FREE)
+  subscriptionId        String?
+  stripeCustomerId      String?
+  subscriptionEndsAt    DateTime?
+  dreamEntriesThisMonth Int                @default(0)
+  dreamEntriesResetAt   DateTime           @default(now())
+  
+  // Push notification preferences
+  pushNotificationToken String?
+  notificationsEnabled  Boolean @default(true)
+  reminderTime          String? // Time in HH:MM format for daily reminders
+  
+  // Preferences and settings
+  preferences Json @default("{}")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  dreams             Dream[]
+  voiceRecordings    VoiceRecording[]
+  dreamAnalyses      DreamAnalysis[]
+  patterns           DreamPattern[]
+  subscriptions      Subscription[]
+  notifications      Notification[]
+  
+  @@map("users")
+}
+
+enum SubscriptionStatus {
+  FREE
+  PREMIUM
+  CANCELLED
+  EXPIRED
+}
+
+// Subscription tracking for Stripe integration
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String
+  stripeSubscriptionId String          @unique
+  status            SubscriptionStatus
+  priceId           String
+  quantity          Int                @default(1)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd Boolean           @default(false)
+  canceledAt        DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("subscriptions")
+}
+
+// Core dream entries
+model Dream {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  content     String
+  
+  // Dream metadata
+  dreamDate   DateTime @default(now())
+  sleepTime   DateTime?
+  wakeTime    DateTime?
+  sleepQuality Int?    // 1-10 scale
+  lucidity    Int?     // 1-10 scale
+  vividness   Int?     // 1-10 scale
+  mood        String?  // Before sleep
+  wakeUpMood  String?  // Upon waking
+  
+  // Extracted information
+  emotions    String[] @default([])
+  symbols     String[] @default([])
+  people      String[] @default([])
+  places      String[] @default([])
+  themes      String[] @default([])
+  colors      String[] @default([])
+  
+  // Life context tags
+  lifeTags    String[] @default([])
+  
+  // Status and processing
+  isProcessed Boolean @default(false)
+  isDraft     Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  voiceRecordings VoiceRecording[]
+  analysis        DreamAnalysis[]
+  
+  @@map("dreams")
+}
+
+// Voice recordings for dreams
+model VoiceRecording {
+  id        String @id @default(cuid())
+  userId    String
+  dreamId   String?
+  
+  fileName  String
+  filePath  String  // S3 path or local path
+  fileSize  Int
+  duration  Float   // Duration in seconds
+  
+  // Audio processing
+  transcription String?
+  isProcessed   Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dream  Dream? @relation(fields: [dreamId], references: [id], onDelete: SetNull)
+  
+  @@map("voice_recordings")
+}
+
+// AI-powered dream analysis
+model DreamAnalysis {
+  id      String @id @default(cuid())
+  userId  String
+  dreamId String
+  
+  // Analysis results
+  interpretation    String
+  symbolAnalysis    Json    @default("{}")
+  emotionalAnalysis Json    @default("{}")
+  themes            String[] @default([])
+  insights          String[] @default([])
+  reflectionQuestions String[] @default([])
+  actionableAdvice  String?
+  
+  // Analysis metadata
+  analysisType      AnalysisType @default(BASIC)
+  confidence        Float?       // 0-1 confidence score
+  processingTime    Int?         // Time in milliseconds
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dream Dream @relation(fields: [dreamId], references: [id], onDelete: Cascade)
+  
+  @@map("dream_analyses")
+}
+
+enum AnalysisType {
+  BASIC
+  ADVANCED
+  PATTERN_RECOGNITION
+  PERSONAL_MYTHOLOGY
+}
+
+// Dream patterns and insights
+model DreamPattern {
+  id          String      @id @default(cuid())
+  userId      String
+  
+  patternType PatternType
+  name        String
+  description String
+  
+  // Pattern data
+  frequency   Int
+  confidence  Float       // 0-1 confidence score
+  timeRange   Int         // Days of data used
+  correlation String?     // What this pattern correlates with
+  insight     String
+  
+  // Pattern metadata
+  firstOccurrence DateTime
+  lastOccurrence  DateTime
+  isActive        Boolean @default(true)
+  
+  relatedSymbols  String[] @default([])
+  relatedEmotions String[] @default([])
+  relatedThemes   String[] @default([])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("dream_patterns")
+}
+
+enum PatternType {
+  SYMBOL_FREQUENCY
+  EMOTIONAL_CYCLE
+  TIMING_PATTERN
+  THEME_EVOLUTION
+  LUCIDITY_TRIGGER
+  STRESS_RESPONSE
+  SEASONAL_PATTERN
+}
+
+// Push notifications and reminders
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?            @default("{}")
+  
+  // Delivery information
+  scheduledFor DateTime?
+  sentAt       DateTime?
+  delivered    Boolean       @default(false)
+  opened       Boolean       @default(false)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("notifications")
+}
+
+enum NotificationType {
+  DREAM_REMINDER
+  ANALYSIS_COMPLETE
+  PATTERN_DISCOVERED
+  SUBSCRIPTION_EXPIRING
+  WELCOME
+  TIP_OF_DAY
+}
+
+// System logs and analytics
+model SystemLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  details   Json?    @default("{}")
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  @@map("system_logs")
+}
