@@ -1,0 +1,111 @@
+# Dream Journal Pro API Tests
+# Use with REST Client VS Code extension or similar
+
+@baseUrl = http://localhost:3000/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### Health Check
+GET http://localhost:3000/health
+
+### API Info
+GET {{baseUrl}}
+
+### Register User
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "TestPassword123!",
+  "username": "testuser",
+  "firstName": "Test",
+  "lastName": "User"
+}
+
+### Login User
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@example.com",
+  "password": "TestPassword123!"
+}
+
+### Get User Profile
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{token}}
+
+### Create Dream
+POST {{baseUrl}}/dreams
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Flying Over Mountains",
+  "content": "I found myself soaring above snow-capped peaks, feeling completely free and weightless. The landscape below was breathtaking with deep valleys and crystal-clear lakes.",
+  "emotions": ["joy", "freedom", "wonder"],
+  "symbols": ["flying", "mountains", "water", "height"],
+  "themes": ["liberation", "adventure", "nature"],
+  "sleepQuality": 8,
+  "lucidity": 3,
+  "vividness": 9,
+  "mood": "excited",
+  "wakeUpMood": "inspired"
+}
+
+### Get Dreams
+GET {{baseUrl}}/dreams?page=1&limit=10
+Authorization: Bearer {{token}}
+
+### Get Dream Statistics
+GET {{baseUrl}}/dreams/stats
+Authorization: Bearer {{token}}
+
+### Get Subscription Prices (Public)
+GET {{baseUrl}}/subscriptions/prices
+
+### Get Subscription Status
+GET {{baseUrl}}/subscriptions/status
+Authorization: Bearer {{token}}
+
+### Get Usage Stats
+GET {{baseUrl}}/subscriptions/usage
+Authorization: Bearer {{token}}
+
+### Register Push Token
+POST {{baseUrl}}/notifications/register-token
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "pushToken": "ExponentPushToken[test-token-here]"
+}
+
+### Send Test Notification
+POST {{baseUrl}}/notifications/test
+Authorization: Bearer {{token}}
+
+### Get Notification Settings
+GET {{baseUrl}}/notifications/settings
+Authorization: Bearer {{token}}
+
+### Extract Dream Symbols
+POST {{baseUrl}}/analysis/extract-symbols
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "content": "I dreamed I was in a forest with tall trees, and there was a wise owl sitting on a branch. A river was flowing nearby, and I could hear its gentle murmur."
+}
+
+### Get Sync Status
+GET {{baseUrl}}/sync/status
+Authorization: Bearer {{token}}
+
+### Get User Patterns (Premium Feature)
+GET {{baseUrl}}/patterns?timeRange=30
+Authorization: Bearer {{token}}
+
+### Get Pattern Insights
+GET {{baseUrl}}/patterns/insights
+Authorization: Bearer {{token}}
