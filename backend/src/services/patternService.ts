@@ -207,7 +207,7 @@ export class PatternService {
   }
 
   private static async detectThemeEvolution(dreams: any[]): Promise<any[]> {
-    const patterns = [];
+    const patterns: any[] = [];
     
     // Split dreams into early and late periods
     const midpoint = Math.floor(dreams.length / 2);

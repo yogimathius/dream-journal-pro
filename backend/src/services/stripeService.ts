@@ -8,7 +8,7 @@ class StripeService {
 
   constructor() {
     this.stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-      apiVersion: '2024-12-18.acacia',
+      apiVersion: '2025-08-27.basil',
     });
   }
 
@@ -99,8 +99,8 @@ class StripeService {
           stripeSubscriptionId: subscription.id,
           status: this.mapSubscriptionStatus(subscription.status),
           priceId,
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
         },
       });
 
@@ -110,7 +110,7 @@ class StripeService {
         data: {
           subscriptionStatus: 'PREMIUM',
           subscriptionId: subscription.id,
-          subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
+          subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
         },
       });
 
@@ -275,16 +275,16 @@ class StripeService {
           stripeSubscriptionId: subscription.id,
           status,
           priceId: subscription.items.data[0]?.price?.id || '',
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
           canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
         },
         update: {
           status,
           priceId: subscription.items.data[0]?.price?.id || '',
-          currentPeriodStart: new Date(subscription.current_period_start * 1000),
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
+          currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
           cancelAtPeriodEnd: subscription.cancel_at_period_end,
           canceledAt: subscription.canceled_at ? new Date(subscription.canceled_at * 1000) : null,
         },
@@ -296,7 +296,7 @@ class StripeService {
         data: {
           subscriptionStatus: status,
           subscriptionId: subscription.id,
-          subscriptionEndsAt: new Date(subscription.current_period_end * 1000),
+          subscriptionEndsAt: new Date((subscription as any).current_period_end * 1000),
         },
       });
 
@@ -342,9 +342,9 @@ class StripeService {
 
   private async handlePaymentSucceeded(invoice: Stripe.Invoice): Promise<void> {
     try {
-      if (!invoice.subscription || !invoice.customer) return;
+      if (!(invoice as any).subscription || !invoice.customer) return;
 
-      const subscription = await this.stripe.subscriptions.retrieve(invoice.subscription as string);
+      const subscription = await this.stripe.subscriptions.retrieve((invoice as any).subscription as string);
       const userId = subscription.metadata.userId;
 
       if (!userId) return;
@@ -364,9 +364,9 @@ class StripeService {
 
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
     try {
-      if (!invoice.subscription) return;
+      if (!(invoice as any).subscription) return;
 
-      const subscription = await this.stripe.subscriptions.retrieve(invoice.subscription as string);
+      const subscription = await this.stripe.subscriptions.retrieve((invoice as any).subscription as string);
       const userId = subscription.metadata.userId;
 
       if (!userId) return;
@@ -436,7 +436,7 @@ class StripeService {
       return {
         status: user.subscriptionStatus,
         stripeStatus: subscription.status,
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        currentPeriodEnd: new Date((subscription as any).current_period_end * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
         dreamEntriesThisMonth: user.dreamEntriesThisMonth,
       };

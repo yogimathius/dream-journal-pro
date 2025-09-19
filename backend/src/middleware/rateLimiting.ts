@@ -11,7 +11,7 @@ export const createRateLimit = (options: {
     windowMs: options.windowMs || env.RATE_LIMIT_WINDOW_MS,
     max: options.max || env.RATE_LIMIT_MAX_REQUESTS,
     skipSuccessfulRequests: options.skipSuccessfulRequests || false,
-    message: (req, res) => {
+    message: (req: any, res: any) => {
       const response: ApiResponse = {
         success: false,
         error: 'Too many requests, please try again later',

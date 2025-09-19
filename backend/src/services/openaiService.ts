@@ -1,5 +1,5 @@
-import OpenAI from 'openai';
-import { env } from '../config/env';
+import OpenAI from "openai/index.js";
+import { env } from "../config/env";
 
 interface DreamAnalysisInput {
   title: string;
@@ -13,7 +13,11 @@ interface DreamAnalysisInput {
     emotions: string[];
     themes: string[];
   }>;
-  analysisType?: 'BASIC' | 'ADVANCED' | 'PATTERN_RECOGNITION' | 'PERSONAL_MYTHOLOGY';
+  analysisType?:
+    | "BASIC"
+    | "ADVANCED"
+    | "PATTERN_RECOGNITION"
+    | "PERSONAL_MYTHOLOGY";
 }
 
 interface DreamAnalysisResult {
@@ -39,58 +43,62 @@ class OpenAIService {
   async analyzeDream(input: DreamAnalysisInput): Promise<DreamAnalysisResult> {
     try {
       const prompt = this.buildAnalysisPrompt(input);
-      
+
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: "gpt-4-turbo-preview",
         messages: [
           {
-            role: 'system',
-            content: this.getSystemPrompt(input.analysisType || 'BASIC'),
+            role: "system",
+            content: this.getSystemPrompt(input.analysisType || "BASIC"),
           },
           {
-            role: 'user',
+            role: "user",
             content: prompt,
           },
         ],
         temperature: 0.7,
         max_tokens: 2000,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const response = completion.choices[0]?.message?.content;
       if (!response) {
-        throw new Error('No response from OpenAI');
+        throw new Error("No response from OpenAI");
       }
 
       const analysisResult = JSON.parse(response) as DreamAnalysisResult;
-      
+
       // Ensure confidence is a valid number between 0 and 1
-      analysisResult.confidence = Math.max(0, Math.min(1, analysisResult.confidence || 0.7));
-      
+      analysisResult.confidence = Math.max(
+        0,
+        Math.min(1, analysisResult.confidence || 0.7)
+      );
+
       return analysisResult;
     } catch (error) {
-      console.error('OpenAI analysis error:', error);
-      throw new Error('Failed to analyze dream with AI');
+      console.error("OpenAI analysis error:", error);
+      throw new Error("Failed to analyze dream with AI");
     }
   }
 
   async extractSymbols(dreamContent: string): Promise<string[]> {
     try {
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: "gpt-3.5-turbo",
         messages: [
           {
-            role: 'system',
-            content: 'You are a dream symbol extractor. Extract key symbols from the dream and return them as a JSON array. Focus on meaningful objects, animals, people, places, and concepts that appear in the dream.',
+            role: "system",
+            content:
+              "You are a dream symbol extractor. Extract key symbols from the dream and return them as a JSON array. Focus on meaningful objects, animals, people, places, and concepts that appear in the dream.",
           },
           {
-            role: 'user',
+            role: "user",
             content: `Extract symbols from this dream: "${dreamContent}"`,
           },
         ],
         temperature: 0.3,
         max_tokens: 500,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const response = completion.choices[0]?.message?.content;
@@ -101,33 +109,37 @@ class OpenAIService {
       const result = JSON.parse(response);
       return result.symbols || [];
     } catch (error) {
-      console.error('Symbol extraction error:', error);
+      console.error("Symbol extraction error:", error);
       return [];
     }
   }
 
-  async detectPatterns(dreams: Array<{
-    title: string;
-    content: string;
-    emotions: string[];
-    symbols: string[];
-    themes: string[];
-    dreamDate: Date;
-  }>): Promise<Array<{
-    type: string;
-    name: string;
-    description: string;
-    frequency: number;
-    confidence: number;
-    insight: string;
-  }>> {
+  async detectPatterns(
+    dreams: Array<{
+      title: string;
+      content: string;
+      emotions: string[];
+      symbols: string[];
+      themes: string[];
+      dreamDate: Date;
+    }>
+  ): Promise<
+    Array<{
+      type: string;
+      name: string;
+      description: string;
+      frequency: number;
+      confidence: number;
+      insight: string;
+    }>
+  > {
     try {
       if (dreams.length < 3) {
         return []; // Need at least 3 dreams to detect patterns
       }
 
-      const dreamsSummary = dreams.map(dream => ({
-        date: dream.dreamDate.toISOString().split('T')[0],
+      const dreamsSummary = dreams.map((dream) => ({
+        date: dream.dreamDate.toISOString().split("T")[0],
         symbols: dream.symbols.slice(0, 5), // Top 5 symbols
         emotions: dream.emotions.slice(0, 3), // Top 3 emotions
         themes: dream.themes.slice(0, 3), // Top 3 themes
@@ -135,10 +147,10 @@ class OpenAIService {
       }));
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: "gpt-4-turbo-preview",
         messages: [
           {
-            role: 'system',
+            role: "system",
             content: `You are a dream pattern analyst. Analyze the provided dream data to identify recurring patterns, cycles, and insights. Look for:
             1. Symbol frequency patterns
             2. Emotional cycles
@@ -149,13 +161,17 @@ class OpenAIService {
             Return a JSON object with a "patterns" array containing pattern objects with: type, name, description, frequency, confidence (0-1), and insight.`,
           },
           {
-            role: 'user',
-            content: `Analyze these dreams for patterns:\n${JSON.stringify(dreamsSummary, null, 2)}`,
+            role: "user",
+            content: `Analyze these dreams for patterns:\n${JSON.stringify(
+              dreamsSummary,
+              null,
+              2
+            )}`,
           },
         ],
         temperature: 0.6,
         max_tokens: 1500,
-        response_format: { type: 'json_object' },
+        response_format: { type: "json_object" },
       });
 
       const response = completion.choices[0]?.message?.content;
@@ -166,7 +182,7 @@ class OpenAIService {
       const result = JSON.parse(response);
       return result.patterns || [];
     } catch (error) {
-      console.error('Pattern detection error:', error);
+      console.error("Pattern detection error:", error);
       return [];
     }
   }
@@ -178,21 +194,25 @@ Title: "${input.title}"
 Content: "${input.content}"`;
 
     if (input.emotions?.length) {
-      prompt += `\nIdentified Emotions: ${input.emotions.join(', ')}`;
+      prompt += `\nIdentified Emotions: ${input.emotions.join(", ")}`;
     }
 
     if (input.symbols?.length) {
-      prompt += `\nIdentified Symbols: ${input.symbols.join(', ')}`;
+      prompt += `\nIdentified Symbols: ${input.symbols.join(", ")}`;
     }
 
     if (input.themes?.length) {
-      prompt += `\nIdentified Themes: ${input.themes.join(', ')}`;
+      prompt += `\nIdentified Themes: ${input.themes.join(", ")}`;
     }
 
     if (input.userHistory?.length) {
       prompt += `\n\nRecent Dream History (for context):`;
       input.userHistory.forEach((dream, index) => {
-        prompt += `\n${index + 1}. Date: ${dream.date.toISOString().split('T')[0]}, Symbols: ${dream.symbols.join(', ')}, Emotions: ${dream.emotions.join(', ')}`;
+        prompt += `\n${index + 1}. Date: ${
+          dream.date.toISOString().split("T")[0]
+        }, Symbols: ${dream.symbols.join(
+          ", "
+        )}, Emotions: ${dream.emotions.join(", ")}`;
       });
     }
 
@@ -221,17 +241,29 @@ Return your analysis as a JSON object with this structure:
 }`;
 
     switch (analysisType) {
-      case 'ADVANCED':
-        return basePrompt + `\n\nProvide an advanced analysis that includes archetypal symbolism, potential shadow work, and deeper psychological insights.`;
-      
-      case 'PATTERN_RECOGNITION':
-        return basePrompt + `\n\nFocus on identifying recurring patterns, symbols, and themes that connect to the dreamer's personal growth journey.`;
-      
-      case 'PERSONAL_MYTHOLOGY':
-        return basePrompt + `\n\nAnalyze the dream as part of the dreamer's personal mythology and hero's journey. Look for mythological parallels and archetypal themes.`;
-      
+      case "ADVANCED":
+        return (
+          basePrompt +
+          `\n\nProvide an advanced analysis that includes archetypal symbolism, potential shadow work, and deeper psychological insights.`
+        );
+
+      case "PATTERN_RECOGNITION":
+        return (
+          basePrompt +
+          `\n\nFocus on identifying recurring patterns, symbols, and themes that connect to the dreamer's personal growth journey.`
+        );
+
+      case "PERSONAL_MYTHOLOGY":
+        return (
+          basePrompt +
+          `\n\nAnalyze the dream as part of the dreamer's personal mythology and hero's journey. Look for mythological parallels and archetypal themes.`
+        );
+
       default:
-        return basePrompt + `\n\nProvide a balanced, accessible analysis suitable for someone new to dream work.`;
+        return (
+          basePrompt +
+          `\n\nProvide a balanced, accessible analysis suitable for someone new to dream work.`
+        );
     }
   }
 }

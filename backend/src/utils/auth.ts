@@ -19,11 +19,15 @@ export class AuthUtils {
   }
 
   static generateToken(payload: TokenPayload): string {
-    return jwt.sign(payload, env.JWT_SECRET, {
-      expiresIn: env.JWT_EXPIRES_IN,
-      issuer: 'dream-journal-pro',
-      audience: 'dream-journal-pro-users',
-    });
+    return jwt.sign(
+      payload, 
+      env.JWT_SECRET as jwt.Secret, 
+      {
+        expiresIn: env.JWT_EXPIRES_IN as string | number,
+        issuer: 'dream-journal-pro',
+        audience: 'dream-journal-pro-users',
+      } as jwt.SignOptions
+    );
   }
 
   static verifyToken(token: string): TokenPayload | null {
