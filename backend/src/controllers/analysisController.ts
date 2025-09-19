@@ -77,7 +77,7 @@ export class AnalysisController {
           take: 5,
         });
 
-        userHistory = recentDreams.map(d => ({
+        userHistory = recentDreams.map((d: any) => ({
           date: d.dreamDate,
           symbols: d.symbols,
           emotions: d.emotions,

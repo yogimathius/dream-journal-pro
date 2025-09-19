@@ -419,17 +419,17 @@ export class DreamController {
       const themeCount: Record<string, number> = {};
       const colorCount: Record<string, number> = {};
 
-      dreams.forEach(dream => {
-        dream.symbols.forEach(symbol => {
+      dreams.forEach((dream: any) => {
+        dream.symbols.forEach((symbol: any) => {
           symbolCount[symbol] = (symbolCount[symbol] || 0) + 1;
         });
-        dream.emotions.forEach(emotion => {
+        dream.emotions.forEach((emotion: any) => {
           emotionCount[emotion] = (emotionCount[emotion] || 0) + 1;
         });
-        dream.themes.forEach(theme => {
+        dream.themes.forEach((theme: any) => {
           themeCount[theme] = (themeCount[theme] || 0) + 1;
         });
-        dream.colors.forEach(color => {
+        dream.colors.forEach((color: any) => {
           colorCount[color] = (colorCount[color] || 0) + 1;
         });
       });

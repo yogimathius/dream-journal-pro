@@ -142,7 +142,7 @@ export class VoiceController {
 
       // Generate signed URLs for accessing recordings
       const recordingsWithUrls = await Promise.all(
-        voiceRecordings.map(async (recording) => {
+        voiceRecordings.map(async (recording: any) => {
           let signedUrl = null;
           try {
             signedUrl = await s3Service.getSignedUrl(recording.filePath, 3600); // 1 hour
