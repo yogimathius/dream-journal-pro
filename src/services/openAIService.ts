@@ -1,173 +1,46 @@
 import { DreamEntry, DreamAnalysis } from '../types/dream';
-
-// OpenAI API configuration
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const MODEL = 'gpt-4o-mini'; // Using the more cost-effective model for production
-
-export interface OpenAIConfig {
-  apiKey: string;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-}
+import { apiClient } from './apiClient';
 
 class OpenAIService {
-  private config: OpenAIConfig;
-
-  constructor(config: OpenAIConfig) {
-    this.config = {
-      model: MODEL,
-      maxTokens: 800,
-      temperature: 0.7,
-      ...config,
-    };
-  }
-
   async analyzeDream(dream: DreamEntry): Promise<DreamAnalysis> {
-    if (!this.config.apiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    const prompt = this.createDreamAnalysisPrompt(dream);
-    
     try {
-      const response = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.config.model,
-          messages: [
-            {
-              role: 'system',
-              content: this.getSystemPrompt()
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          max_tokens: this.config.maxTokens,
-          temperature: this.config.temperature,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`OpenAI API Error: ${error.error?.message || 'Unknown error'}`);
-      }
-
-      const data = await response.json();
-      const analysisText = data.choices[0]?.message?.content;
-      
-      if (!analysisText) {
-        throw new Error('No analysis received from OpenAI');
-      }
-
-      return this.parseAnalysisResponse(analysisText);
+      // Use the backend API instead of calling OpenAI directly
+      const response = await apiClient.analyzeDream(dream.id);
+      return this.parseAnalysisResponse(response);
     } catch (error) {
       console.error('Dream analysis error:', error);
       throw new Error(`Failed to analyze dream: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  private getSystemPrompt(): string {
-    return `You are a wise and compassionate dream analyst with expertise in depth psychology, Jungian analysis, and symbolic interpretation. Your role is to help people understand their dreams through thoughtful, insightful analysis that connects to their personal growth journey.
 
-Guidelines for your analysis:
-- Focus on psychological growth and self-understanding, not prediction
-- Draw from Jungian concepts like archetypes, shadow work, and individuation
-- Consider both universal symbols and personal meanings
-- Be supportive and encouraging while offering depth
-- Avoid fortune-telling or medical advice
-- Keep interpretations grounded in psychological principles
-- Encourage personal reflection and integration
-
-Your response should be structured as a JSON object with these exact fields:
-{
-  "symbolicLandscape": "2-3 sentences connecting key symbols to the dreamer's psyche",
-  "emotionalUndercurrent": "What emotions is the unconscious processing?",
-  "lifeIntegration": "How does this dream relate to current waking life?",
-  "personalPatterns": "Patterns and themes based on the dream content",
-  "soulQuestions": ["3 deep questions for self-reflection"],
-  "integrationPractice": "One specific action to bridge dream insight into waking life",
-  "confidence": 0.85,
-  "processingTime": 12000
-}
-
-Respond ONLY with valid JSON, no additional text.`;
-  }
-
-  private createDreamAnalysisPrompt(dream: DreamEntry): string {
-    const emotionList = dream.emotions.map(e => `${e.name} (${e.intensity}/10)`).join(', ');
-    const symbolList = dream.symbols.join(', ');
-    const lifeContextList = dream.lifeTags.join(', ');
-    
-    return `Please analyze this dream:
-
-DREAM NARRATIVE:
-"${dream.narrative}"
-
-DREAM METADATA:
-- Title: ${dream.title}
-- Date: ${new Date(dream.date).toLocaleDateString()}
-- Lucidity Level: ${dream.lucidity}/10
-- Vividness: ${dream.vividness}/10
-- Sleep Quality: ${dream.sleepQuality}/10
-- Emotions Present: ${emotionList || 'None specified'}
-- Key Symbols: ${symbolList || 'None identified'}
-- Life Context: ${lifeContextList || 'None specified'}
-
-Provide a comprehensive psychological analysis following the JSON structure specified in the system prompt.`;
-  }
-
-  private parseAnalysisResponse(response: string): DreamAnalysis {
+  private parseAnalysisResponse(response: any): DreamAnalysis {
     try {
-      // Clean the response - remove any markdown formatting or extra text
-      let cleanResponse = response.trim();
-      
-      // Extract JSON from response if it's wrapped in other text
-      const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        cleanResponse = jsonMatch[0];
+      // Response from backend is already structured
+      if (typeof response === 'object' && response !== null) {
+        return {
+          symbolicLandscape: response.symbolicLandscape || 'No symbolic analysis available',
+          emotionalUndercurrent: response.emotionalUndercurrent || 'No emotional analysis available',
+          lifeIntegration: response.lifeIntegration || 'No life integration analysis available',
+          personalPatterns: response.personalPatterns || 'No patterns identified',
+          soulQuestions: Array.isArray(response.soulQuestions) ? response.soulQuestions : [
+            'What deeper meaning might this dream hold for me?',
+            'How does this dream connect to my current life situation?',
+            'What emotions is my unconscious mind processing?'
+          ],
+          integrationPractice: response.integrationPractice || 'Take time to journal about this dream and reflect on its meaning for you.',
+          confidence: response.confidence || 0.8,
+          processingTime: response.processingTime || Date.now(),
+        };
       }
 
-      const parsed = JSON.parse(cleanResponse);
-      
-      // Validate required fields
-      const requiredFields = [
-        'symbolicLandscape',
-        'emotionalUndercurrent', 
-        'lifeIntegration',
-        'personalPatterns',
-        'soulQuestions',
-        'integrationPractice'
-      ];
-
-      for (const field of requiredFields) {
-        if (!parsed[field]) {
-          throw new Error(`Missing required field: ${field}`);
-        }
+      // If response is a string, try to parse it
+      if (typeof response === 'string') {
+        const parsed = JSON.parse(response);
+        return this.parseAnalysisResponse(parsed);
       }
 
-      // Ensure soulQuestions is an array
-      if (!Array.isArray(parsed.soulQuestions)) {
-        parsed.soulQuestions = [parsed.soulQuestions];
-      }
-
-      // Set defaults for optional fields
-      return {
-        symbolicLandscape: parsed.symbolicLandscape,
-        emotionalUndercurrent: parsed.emotionalUndercurrent,
-        lifeIntegration: parsed.lifeIntegration,
-        personalPatterns: parsed.personalPatterns,
-        soulQuestions: parsed.soulQuestions,
-        integrationPractice: parsed.integrationPractice,
-        confidence: parsed.confidence || 0.8,
-        processingTime: parsed.processingTime || Date.now(),
-      };
+      throw new Error('Invalid response format');
     } catch (error) {
       console.error('Failed to parse AI response:', error);
       throw new Error('Invalid response format from AI analysis');
@@ -176,23 +49,15 @@ Provide a comprehensive psychological analysis following the JSON structure spec
 }
 
 // Singleton instance for the app
-let openAIService: OpenAIService | null = null;
-
-export const initializeOpenAI = (config: OpenAIConfig): void => {
-  openAIService = new OpenAIService(config);
-};
+const openAIService = new OpenAIService();
 
 export const getOpenAIService = (): OpenAIService => {
-  if (!openAIService) {
-    throw new Error('OpenAI service not initialized. Call initializeOpenAI() first.');
-  }
   return openAIService;
 };
 
 // Helper function for dream analysis
 export const analyzeDreamWithAI = async (dream: DreamEntry): Promise<DreamAnalysis> => {
-  const service = getOpenAIService();
-  return service.analyzeDream(dream);
+  return openAIService.analyzeDream(dream);
 };
 
 // Mock analysis for development/demo purposes
