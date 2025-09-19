@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DreamEntry, DreamAnalysis, UserPreferences, Pattern } from '../types/dream';
-import { initializeOpenAI } from '../services/openAIService';
+import { apiClient } from '../services/apiClient';
 import notificationService from '../services/notificationService';
 
 interface DreamStore {
@@ -10,12 +10,15 @@ interface DreamStore {
   patterns: Pattern[];
   isAnalyzing: boolean;
   userPreferences: UserPreferences;
+  isLoading: boolean;
+  error: string | null;
   
   // Dream CRUD operations
-  addDream: (dream: Omit<DreamEntry, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateDream: (id: string, updates: Partial<DreamEntry>) => void;
-  deleteDream: (id: string) => void;
+  addDream: (dream: Omit<DreamEntry, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateDream: (id: string, updates: Partial<DreamEntry>) => Promise<void>;
+  deleteDream: (id: string) => Promise<void>;
   getDream: (id: string) => DreamEntry | undefined;
+  fetchDreams: () => Promise<void>;
   
   // Search and filter
   searchDreams: (query: string) => DreamEntry[];
@@ -23,8 +26,10 @@ interface DreamStore {
   
   // Analysis
   setAnalyzing: (analyzing: boolean) => void;
+  analyzeDream: (dreamId: string) => Promise<void>;
   updateDreamAnalysis: (dreamId: string, analysis: DreamAnalysis) => void;
   updatePatterns: (patterns: Pattern[]) => void;
+  fetchPatterns: () => Promise<void>;
   
   // Preferences
   updatePreferences: (preferences: Partial<UserPreferences>) => void;
@@ -32,8 +37,9 @@ interface DreamStore {
   // Statistics
   getDreamStatistics: () => DreamStatistics;
   
-  // Sample data
-  loadSampleData: () => void;
+  // Utility
+  setError: (error: string | null) => void;
+  clearError: () => void;
   clearAllData: () => void;
 }
 
@@ -60,10 +66,6 @@ export interface DreamStatistics {
   currentStreak: number;
 }
 
-const generateId = (): string => {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
-};
-
 const defaultPreferences: UserPreferences = {
   reminderTime: '07:00',
   reminderEnabled: true,
@@ -78,6 +80,46 @@ const defaultPreferences: UserPreferences = {
   },
 };
 
+// Transform backend dream format to frontend format
+const transformBackendDream = (backendDream: any): DreamEntry => {
+  return {
+    id: backendDream.id,
+    title: backendDream.title,
+    narrative: backendDream.content,
+    date: new Date(backendDream.recordedAt || backendDream.createdAt),
+    lucidity: backendDream.lucidityLevel || 5,
+    vividness: backendDream.vividnessLevel || 5,
+    sleepQuality: backendDream.sleepQuality || 7,
+    emotions: backendDream.emotions ? JSON.parse(backendDream.emotions) : [],
+    symbols: backendDream.symbols ? JSON.parse(backendDream.symbols) : [],
+    lifeTags: backendDream.tags ? JSON.parse(backendDream.tags) : [],
+    voiceRecording: backendDream.voiceFileUrl ? {
+      uri: backendDream.voiceFileUrl,
+      duration: backendDream.voiceDuration || 0,
+      transcription: backendDream.voiceTranscription || '',
+    } : undefined,
+    aiInterpretation: backendDream.aiAnalysis,
+    createdAt: new Date(backendDream.createdAt),
+    updatedAt: new Date(backendDream.updatedAt),
+  };
+};
+
+// Transform frontend dream format to backend format
+const transformFrontendDream = (frontendDream: Omit<DreamEntry, 'id' | 'createdAt' | 'updatedAt'>) => {
+  return {
+    title: frontendDream.title,
+    content: frontendDream.narrative,
+    mood: frontendDream.emotions[0]?.name || 'neutral',
+    lucidityLevel: frontendDream.lucidity,
+    vividnessLevel: frontendDream.vividness,
+    sleepQuality: frontendDream.sleepQuality,
+    emotions: JSON.stringify(frontendDream.emotions),
+    symbols: JSON.stringify(frontendDream.symbols),
+    tags: JSON.stringify(frontendDream.lifeTags),
+    recordedAt: frontendDream.date.toISOString(),
+  };
+};
+
 export const useDreamStore = create<DreamStore>()(
   persist(
     (set, get) => ({
@@ -85,34 +127,95 @@ export const useDreamStore = create<DreamStore>()(
       patterns: [],
       isAnalyzing: false,
       userPreferences: defaultPreferences,
+      isLoading: false,
+      error: null,
 
-      addDream: (dreamData) => {
-        const dream: DreamEntry = {
-          ...dreamData,
-          id: generateId(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-        
-        set((state) => ({
-          dreams: [dream, ...state.dreams],
-        }));
+      fetchDreams: async () => {
+        try {
+          set({ isLoading: true, error: null });
+          const response = await apiClient.getDreams();
+          const transformedDreams = response.dreams?.map(transformBackendDream) || [];
+          set({ dreams: transformedDreams, isLoading: false });
+        } catch (error) {
+          console.error('Failed to fetch dreams:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to fetch dreams',
+            isLoading: false 
+          });
+        }
       },
 
-      updateDream: (id, updates) => {
-        set((state) => ({
-          dreams: state.dreams.map((dream) =>
-            dream.id === id
-              ? { ...dream, ...updates, updatedAt: new Date() }
-              : dream
-          ),
-        }));
+      addDream: async (dreamData) => {
+        try {
+          set({ isLoading: true, error: null });
+          const backendData = transformFrontendDream(dreamData);
+          const response = await apiClient.createDream(backendData);
+          const newDream = transformBackendDream(response.dream);
+          
+          set((state) => ({
+            dreams: [newDream, ...state.dreams],
+            isLoading: false,
+          }));
+        } catch (error) {
+          console.error('Failed to add dream:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to add dream',
+            isLoading: false 
+          });
+          throw error;
+        }
       },
 
-      deleteDream: (id) => {
-        set((state) => ({
-          dreams: state.dreams.filter((dream) => dream.id !== id),
-        }));
+      updateDream: async (id, updates) => {
+        try {
+          set({ isLoading: true, error: null });
+          const backendUpdates: any = {};
+          
+          if (updates.title) backendUpdates.title = updates.title;
+          if (updates.narrative) backendUpdates.content = updates.narrative;
+          if (updates.emotions) backendUpdates.emotions = JSON.stringify(updates.emotions);
+          if (updates.symbols) backendUpdates.symbols = JSON.stringify(updates.symbols);
+          if (updates.lifeTags) backendUpdates.tags = JSON.stringify(updates.lifeTags);
+          if (updates.lucidity !== undefined) backendUpdates.lucidityLevel = updates.lucidity;
+          if (updates.vividness !== undefined) backendUpdates.vividnessLevel = updates.vividness;
+          if (updates.sleepQuality !== undefined) backendUpdates.sleepQuality = updates.sleepQuality;
+          
+          const response = await apiClient.updateDream({ id, ...backendUpdates });
+          const updatedDream = transformBackendDream(response.dream);
+          
+          set((state) => ({
+            dreams: state.dreams.map((dream) =>
+              dream.id === id ? updatedDream : dream
+            ),
+            isLoading: false,
+          }));
+        } catch (error) {
+          console.error('Failed to update dream:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to update dream',
+            isLoading: false 
+          });
+          throw error;
+        }
+      },
+
+      deleteDream: async (id) => {
+        try {
+          set({ isLoading: true, error: null });
+          await apiClient.deleteDream(id);
+          
+          set((state) => ({
+            dreams: state.dreams.filter((dream) => dream.id !== id),
+            isLoading: false,
+          }));
+        } catch (error) {
+          console.error('Failed to delete dream:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to delete dream',
+            isLoading: false 
+          });
+          throw error;
+        }
       },
 
       getDream: (id) => {
@@ -183,6 +286,34 @@ export const useDreamStore = create<DreamStore>()(
         set({ isAnalyzing: analyzing });
       },
 
+      analyzeDream: async (dreamId) => {
+        try {
+          set({ isAnalyzing: true, error: null });
+          const response = await apiClient.analyzeDream(dreamId);
+          
+          // Update the dream with analysis
+          set((state) => ({
+            dreams: state.dreams.map((dream) =>
+              dream.id === dreamId
+                ? { 
+                    ...dream, 
+                    aiInterpretation: JSON.stringify(response.analysis),
+                    updatedAt: new Date()
+                  }
+                : dream
+            ),
+            isAnalyzing: false,
+          }));
+        } catch (error) {
+          console.error('Failed to analyze dream:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to analyze dream',
+            isAnalyzing: false 
+          });
+          throw error;
+        }
+      },
+
       updateDreamAnalysis: (dreamId, analysis) => {
         set((state) => ({
           dreams: state.dreams.map((dream) =>
@@ -191,6 +322,18 @@ export const useDreamStore = create<DreamStore>()(
               : dream
           ),
         }));
+      },
+
+      fetchPatterns: async () => {
+        try {
+          const response = await apiClient.getPatterns();
+          set({ patterns: response.patterns || [] });
+        } catch (error) {
+          console.error('Failed to fetch patterns:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'Failed to fetch patterns'
+          });
+        }
       },
 
       updatePatterns: (patterns) => {
@@ -204,15 +347,6 @@ export const useDreamStore = create<DreamStore>()(
         set((state) => ({
           userPreferences: newPrefs,
         }));
-        
-        // Initialize OpenAI if API key is provided
-        if (newPrefs.openAIApiKey) {
-          try {
-            initializeOpenAI({ apiKey: newPrefs.openAIApiKey });
-          } catch (error) {
-            console.error('Failed to initialize OpenAI:', error);
-          }
-        }
 
         // Handle notification scheduling
         if ('reminderEnabled' in preferences || 'reminderTime' in preferences) {
@@ -358,20 +492,15 @@ export const useDreamStore = create<DreamStore>()(
         };
       },
 
-      loadSampleData: () => {
-        const { generateMultipleSampleDreams } = require('../utils/sampleData');
-        const sampleDreams = generateMultipleSampleDreams(15);
-        
-        set((state) => ({
-          dreams: [...sampleDreams, ...state.dreams],
-        }));
-      },
+      setError: (error) => set({ error }),
+      clearError: () => set({ error: null }),
 
       clearAllData: () => {
         set(() => ({
           dreams: [],
           patterns: [],
           isAnalyzing: false,
+          error: null,
           userPreferences: defaultPreferences,
         }));
       },
@@ -379,18 +508,13 @@ export const useDreamStore = create<DreamStore>()(
     {
       name: 'dream-store',
       storage: createJSONStorage(() => AsyncStorage),
+      // Only persist user preferences, not dreams (they come from backend)
+      partialize: (state) => ({ 
+        userPreferences: state.userPreferences 
+      }),
       onRehydrateStorage: () => (state) => {
         // Initialize services when store is rehydrated
         if (state?.userPreferences) {
-          // Initialize OpenAI service
-          if (state.userPreferences.openAIApiKey) {
-            try {
-              initializeOpenAI({ apiKey: state.userPreferences.openAIApiKey });
-            } catch (error) {
-              console.error('Failed to initialize OpenAI on startup:', error);
-            }
-          }
-
           // Initialize notification service
           notificationService.initialize().then((initialized) => {
             if (initialized && state.userPreferences.reminderEnabled) {
