@@ -18,14 +18,16 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { useDreamStore } from '../store/dreamStore';
+import { useAuthStore, useUser } from '../store/authStore';
 import { addSampleData } from '../utils/sampleData';
-import { initializeOpenAI } from '../services/openAIService';
 import notificationService from '../services/notificationService';
 
 const SettingsScreen = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { userPreferences, updatePreferences, dreams, loadSampleData, clearAllData } = useDreamStore();
+  const { userPreferences, updatePreferences, dreams, clearAllData } = useDreamStore();
+  const { logout } = useAuthStore();
+  const user = useUser();
   const [showDeveloperInfo, setShowDeveloperInfo] = useState(false);
   const [showApiKeyInput, setShowApiKeyInput] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState(userPreferences.openAIApiKey || '');
@@ -181,6 +183,36 @@ const SettingsScreen = () => {
     }
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to logout? Your dreams will remain saved in the cloud.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Logout', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              console.error('Logout error:', error);
+              // Even if logout fails, we still want to clear local state
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleLoadSampleData = () => {
+    Alert.alert(
+      'Load Sample Data',
+      'This feature is not available in the backend-connected version. Sample data would be loaded from your account.',
+      [{ text: 'OK' }]
+    );
+  };
+
   const formatReminderTime = (time: string) => {
     const [hours, minutes] = time.split(':').map(Number);
     const date = new Date();
@@ -284,6 +316,38 @@ const SettingsScreen = () => {
     <SafeAreaView style={[styles.container, { backgroundColor: isDark ? '#111827' : '#f9fafb' }]}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* Account Information */}
+          {renderSection('Account', (
+            <>
+              <View style={styles.userInfo}>
+                <View style={styles.userAvatar}>
+                  <Text style={styles.userInitials}>
+                    {user ? `${user.firstName[0]}${user.lastName[0]}` : 'U'}
+                  </Text>
+                </View>
+                <View style={styles.userDetails}>
+                  <Text style={[styles.userName, { color: isDark ? '#ffffff' : '#000000' }]}>
+                    {user ? `${user.firstName} ${user.lastName}` : 'Unknown User'}
+                  </Text>
+                  <Text style={[styles.userEmail, { color: isDark ? '#9ca3af' : '#6b7280' }]}>
+                    {user?.email || 'No email'}
+                  </Text>
+                  <Text style={[styles.subscriptionBadge, { color: '#10b981' }]}>
+                    {user?.subscriptionStatus === 'PREMIUM' ? 'Premium' : 'Free'}
+                  </Text>
+                </View>
+              </View>
+              
+              {renderActionItem(
+                'Logout',
+                'Sign out of your account',
+                'log-out-outline',
+                handleLogout,
+                '#ef4444'
+              )}
+            </>
+          ))}
+
           {/* App Preferences */}
           {renderSection('App Preferences', (
             <>
@@ -928,6 +992,43 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 8,
+  },
+  userAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#6366f1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  userInitials: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  userDetails: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  subscriptionBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
 });
 

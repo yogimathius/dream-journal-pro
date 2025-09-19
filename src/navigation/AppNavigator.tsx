@@ -1,23 +1,34 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme, TouchableOpacity } from 'react-native';
+import { useColorScheme, TouchableOpacity, ActivityIndicator, View } from 'react-native';
 
-// Screens (will be created)
+// Screens
 import DreamListScreen from '../screens/DreamListScreen';
 import DreamEntryScreen from '../screens/DreamEntryScreen';
 import DreamDetailScreen from '../screens/DreamDetailScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import PatternsScreen from '../screens/PatternsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import { LoginScreen } from '../screens/LoginScreen';
+import { RegisterScreen } from '../screens/RegisterScreen';
+
+// Store
+import { useAuthStore } from '../store/authStore';
+import { useDreamStore } from '../store/dreamStore';
 
 // Navigation types
 export type RootStackParamList = {
   MainTabs: undefined;
   DreamDetail: { dreamId: string };
   DreamEntry: { dreamId?: string };
+};
+
+export type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
 };
 
 export type TabParamList = {
@@ -29,6 +40,7 @@ export type TabParamList = {
 
 const Tab = createBottomTabNavigator<TabParamList>();
 const Stack = createStackNavigator<RootStackParamList>();
+const AuthStack = createStackNavigator<AuthStackParamList>();
 
 const TabNavigator = () => {
   const colorScheme = useColorScheme();
@@ -121,9 +133,56 @@ const TabNavigator = () => {
   );
 };
 
+const AuthNavigator = () => {
+  return (
+    <AuthStack.Navigator 
+      screenOptions={{ headerShown: false }}
+      initialRouteName="Login"
+    >
+      <AuthStack.Screen name="Login">
+        {({ navigation }) => (
+          <LoginScreen 
+            onNavigateToRegister={() => navigation.navigate('Register')} 
+          />
+        )}
+      </AuthStack.Screen>
+      <AuthStack.Screen name="Register">
+        {({ navigation }) => (
+          <RegisterScreen 
+            onNavigateToLogin={() => navigation.navigate('Login')} 
+          />
+        )}
+      </AuthStack.Screen>
+    </AuthStack.Navigator>
+  );
+};
+
 const AppNavigator = () => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const { fetchDreams } = useDreamStore();
+
+  // Fetch dreams when user becomes authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchDreams().catch(console.error);
+    }
+  }, [isAuthenticated, fetchDreams]);
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: isDark ? '#111827' : '#ffffff'
+      }}>
+        <ActivityIndicator size="large" color="#6366f1" />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer
@@ -139,39 +198,43 @@ const AppNavigator = () => {
         },
       }}
     >
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="MainTabs" component={TabNavigator} />
-        <Stack.Screen
-          name="DreamDetail"
-          component={DreamDetailScreen}
-          options={{
-            headerShown: true,
-            title: 'Dream Details',
-            headerStyle: {
-              backgroundColor: isDark ? '#1f2937' : '#ffffff',
-            },
-            headerTintColor: isDark ? '#ffffff' : '#000000',
-            headerTitleStyle: {
-              fontWeight: '600',
-            },
-          }}
-        />
-        <Stack.Screen
-          name="DreamEntry"
-          component={DreamEntryScreen}
-          options={{
-            headerShown: true,
-            title: 'Record Dream',
-            headerStyle: {
-              backgroundColor: isDark ? '#1f2937' : '#ffffff',
-            },
-            headerTintColor: isDark ? '#ffffff' : '#000000',
-            headerTitleStyle: {
-              fontWeight: '600',
-            },
-          }}
-        />
-      </Stack.Navigator>
+      {isAuthenticated ? (
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="MainTabs" component={TabNavigator} />
+          <Stack.Screen
+            name="DreamDetail"
+            component={DreamDetailScreen}
+            options={{
+              headerShown: true,
+              title: 'Dream Details',
+              headerStyle: {
+                backgroundColor: isDark ? '#1f2937' : '#ffffff',
+              },
+              headerTintColor: isDark ? '#ffffff' : '#000000',
+              headerTitleStyle: {
+                fontWeight: '600',
+              },
+            }}
+          />
+          <Stack.Screen
+            name="DreamEntry"
+            component={DreamEntryScreen}
+            options={{
+              headerShown: true,
+              title: 'Record Dream',
+              headerStyle: {
+                backgroundColor: isDark ? '#1f2937' : '#ffffff',
+              },
+              headerTintColor: isDark ? '#ffffff' : '#000000',
+              headerTitleStyle: {
+                fontWeight: '600',
+              },
+            }}
+          />
+        </Stack.Navigator>
+      ) : (
+        <AuthNavigator />
+      )}
     </NavigationContainer>
   );
 };
