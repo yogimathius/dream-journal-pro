@@ -165,3 +165,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 *Built with ❤️ and 🤖 by Claude Code*
+
+## Current Status
+
+- Rich feature list and mobile scaffolding are documented.
+- Need to verify actual runtime behavior and data persistence.
+- Operational estimate: **60%** (feature-heavy scaffolding, unverified runtime).
+
+## Fixme Rationale
+
+- Marked `_fixme` likely because the implementation needs verification, polish, and stabilization before use.
+
+## API Endpoints
+
+- None. Mobile app appears local/offline-first with optional AI calls.
+
+## Tests
+
+- Not detected or not run in this audit.
+
+## Future Work
+
+- Validate features end-to-end on device.
+- Add automated tests for core flows.
+- Harden data model and sync strategy.
